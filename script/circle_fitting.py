@@ -19,7 +19,7 @@ def point_cloud_callback(data):
     points[:,1]=pc['y']
     points[:,2]=pc['z']
 
-    free_space=Polygon([[np.min(points[:,0]),np.max(points[:,1])],[np.max(points[:,0]),np.min(points[:,1])],[np.max(points[:,0]),np.max(points[:,1])],[np.min(points[:,0]),np.max(points[:,1])]])
+    free_space=Polygon([[np.min(points[:,0]),np.max(points[:,1])],[np.max(points[:,0]),np.max(points[:,1])],[np.max(points[:,0]),np.max(points[:,1])],[np.min(points[:,0]),np.min(points[:,1])]])
 
 
 
@@ -34,20 +34,43 @@ def callback_detectedobjects(data):
             polygon_data[j,0]=data.objects[i].convex_hull.polygon.points[j].x
             polygon_data[j,1]=data.objects[i].convex_hull.polygon.points[j].y
         polygon_list.append(polygon_data)
-    polygon_list=np.array(polygon_list)    
+    polygon_list=np.array(polygon_list)  
+
+    a=np.zeros((len(polygon_list),3))
+    
+    for i in range(len(a)):
+        xc,yc,r=fit_circle_2d(polygon_list[i][:,0],polygon_list[i][:,1])
+        a[i,0]=xc
+        a[i,1]=yc
+        a[i,2]=r
+
 
     
-    for k in range(len(polygon_list)):
-        p=Polygon(polygon_list[k])
-        polygon.append(p)
+    circles=np.intersect1d(np.where(a[:,2] < 3.0),np.where(a[:,2] > 0.2))  
+
+    for i in circles:
+        p=Polygon(polygon_list[i])
+        if free_space.contains(p):
+            polygon.append(i)
+
+    valid_polygon=a[polygon]
+
+    print(a[circles],valid_polygon)
+    # print(valid_polygon)
 
     
-    circles=[]
-    for i in range (len(polygon)):
-        if free_space.contains(polygon[i]) == True:
-            xc,yc,r=fit_circle_2d(polygon_list[i][:,0],polygon_list[i][:,1])
-            if r >0.75 and r< 1.5:
-                circles.append(i)
+    # for k in range(len(polygon_list)):
+    #     p=Polygon(polygon_list[k])
+    #     polygon.append(p)
+
+    
+    
+    # for i in range (len(polygon)):
+    #     if free_space.contains(polygon[i]) == True:
+
+    #         xc,yc,r=fit_circle_2d(polygon_list[i][:,0],polygon_list[i][:,1])
+    #         if r >0.75 and r< 1.5:
+    #             circles.append(i)
 
     
 
@@ -55,15 +78,7 @@ def callback_detectedobjects(data):
 
 
     
-    # a=np.zeros((len(polygon_list),3))
-    
-    # for i in range(len(a)):
-    #     xc,yc,r=fit_circle_2d(polygon_list[i][:,0],polygon_list[i][:,1])
-    #     a[i,0]=xc
-    #     a[i,1]=yc
-    #     a[i,2]=r
-
-    # circles=np.intersect1d(np.where(a[:,2] < 1.5),np.where(a[:,2] > 0.75))
+   
     
     
     
@@ -117,7 +132,7 @@ def angle_between(u, v, n=None):
 
 def pub():
     rospy.init_node('circle_fitting')
-    rospy.Subscriber("/cloud_filtered_High", senmsg.PointCloud2, point_cloud_callback)
+    rospy.Subscriber("/cloud_filtered_Box", senmsg.PointCloud2, point_cloud_callback)
     rospy.Subscriber("/detection/lidar_detector/objects", autoware.DetectedObjectArray, callback_detectedobjects)
     rospy.spin()
 
