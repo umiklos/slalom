@@ -6,9 +6,13 @@ import visualization_msgs.msg as vismsg
 import ros_numpy
 import sensor_msgs.msg as senmsg
 from shapely.geometry import Polygon
+import autoware_msgs.msg as autoware
+
+free_space=None
 
 
 def point_cloud_callback(data):
+    global free_space
     pc = ros_numpy.numpify(data)
     points=np.zeros((pc.shape[0],3))
     points[:,0]=pc['x']
@@ -21,25 +25,45 @@ def point_cloud_callback(data):
 
 def callback_detectedobjects(data):
     polygon_list=[]
+    polygon=[]
     
-
-    for i in range (len(data.markers)):
-        polygon_data=np.zeros((len(data.markers[i].points),2))
-        for j in range(len(data.markers[i].points)):
-            polygon_data[j,0]=data.markers[i].points[j].x
-            polygon_data[j,1]=data.markers[i].points[j].y
+    
+    for i in range (len(data.objects)):
+        polygon_data=np.zeros((len(data.objects[i].convex_hull.polygon.points),2))
+        for j in range(len(data.objects[i].convex_hull.polygon.points)):
+            polygon_data[j,0]=data.objects[i].convex_hull.polygon.points[j].x
+            polygon_data[j,1]=data.objects[i].convex_hull.polygon.points[j].y
         polygon_list.append(polygon_data)
     polygon_list=np.array(polygon_list)    
-    
-    a=np.zeros((len(polygon_list),3))
-    
-    for i in range(len(a)):
-        xc,yc,r=fit_circle_2d(polygon_list[i][:,0],polygon_list[i][:,1])
-        a[i,0]=xc
-        a[i,1]=yc
-        a[i,2]=r
 
-    circles=np.intersect1d(np.where(a[:,2] < 1.5),np.where(a[:,2] > 0.75))
+    
+    for k in range(len(polygon_list)):
+        p=Polygon(polygon_list[k])
+        polygon.append(p)
+
+    
+    circles=[]
+    for i in range (len(polygon)):
+        if free_space.contains(polygon[i]) == True:
+            xc,yc,r=fit_circle_2d(polygon_list[i][:,0],polygon_list[i][:,1])
+            if r >0.75 and r< 1.5:
+                circles.append(i)
+
+    
+
+        
+
+
+    
+    # a=np.zeros((len(polygon_list),3))
+    
+    # for i in range(len(a)):
+    #     xc,yc,r=fit_circle_2d(polygon_list[i][:,0],polygon_list[i][:,1])
+    #     a[i,0]=xc
+    #     a[i,1]=yc
+    #     a[i,2]=r
+
+    # circles=np.intersect1d(np.where(a[:,2] < 1.5),np.where(a[:,2] > 0.75))
     
     
     
@@ -94,7 +118,7 @@ def angle_between(u, v, n=None):
 def pub():
     rospy.init_node('circle_fitting')
     rospy.Subscriber("/cloud_filtered_High", senmsg.PointCloud2, point_cloud_callback)
-    rospy.Subscriber("/converted_euclidean_objects", vismsg.MarkerArray, callback_detectedobjects)
+    rospy.Subscriber("/detection/lidar_detector/objects", autoware.DetectedObjectArray, callback_detectedobjects)
     rospy.spin()
 
 if __name__ == '__main__':
