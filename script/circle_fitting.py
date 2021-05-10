@@ -3,6 +3,20 @@
 import rospy
 import numpy as np
 import visualization_msgs.msg as vismsg
+import ros_numpy
+import sensor_msgs.msg as senmsg
+from shapely.geometry import Polygon
+
+
+def point_cloud_callback(data):
+    pc = ros_numpy.numpify(data)
+    points=np.zeros((pc.shape[0],3))
+    points[:,0]=pc['x']
+    points[:,1]=pc['y']
+    points[:,2]=pc['z']
+
+    free_space=Polygon([[np.min(points[:,0]),np.max(points[:,1])],[np.max(points[:,0]),np.min(points[:,1])],[np.max(points[:,0]),np.max(points[:,1])],[np.min(points[:,0]),np.max(points[:,1])]])
+
 
 
 def callback_detectedobjects(data):
@@ -79,6 +93,7 @@ def angle_between(u, v, n=None):
 
 def pub():
     rospy.init_node('circle_fitting')
+    rospy.Subscriber("/cloud_filtered_High", senmsg.PointCloud2, point_cloud_callback)
     rospy.Subscriber("/converted_euclidean_objects", vismsg.MarkerArray, callback_detectedobjects)
     rospy.spin()
 
