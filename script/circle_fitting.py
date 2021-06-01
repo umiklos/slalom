@@ -50,12 +50,12 @@ def callback_detectedobjects(data):
 
     for i in circles:
         p=Polygon(polygon_list[i])
-        if free_space.contains(p):
+        if free_space.intersects(p):
             polygon.append(i)
 
     valid_polygon=a[polygon]
 
-    print(a[circles],valid_polygon)
+    print(len(valid_polygon),valid_polygon)
     # print(valid_polygon)
 
     
