@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from numpy.core.defchararray import index
+from numpy.lib.arraysetops import intersect1d
 import rospy
 import numpy as np
 import visualization_msgs.msg as vismsg
@@ -22,7 +23,8 @@ slope_left = None
 slope_right = None
 intercept_left=intercept_right= None
 trans_x = 1.938
-trans_y = -0.931 
+#trans_y = -0.931 
+trans_y = 0.229
 middle_pose = None
 pub_valid_circles = None
 pub_goal_midle = None
@@ -45,7 +47,7 @@ def point_cloud_callback(data):
     
     valid_circles=[]
     if len(points) > 0:
-        clustering=DBSCAN(eps=0.6,min_samples=5).fit(points[:,0:2])
+        clustering=DBSCAN(eps=0.6,min_samples=10).fit(points[:,0:2])
 
         number_clusters= len(set(clustering.labels_)) - (1 if -1 in clustering.labels_ else 0)
         b=np.zeros((number_clusters,3))
@@ -73,7 +75,7 @@ def point_cloud_callback(data):
             i+=1
             mark_f = vismsg.Marker()
             mark_f.header.stamp= rospy.Time.now()
-            mark_f.header.frame_id = "left_os1/os1_sensor"
+            mark_f.header.frame_id = "right_os1/os1_sensor"
             mark_f.type = mark_f.SPHERE
             mark_f.action = mark_f.ADD
             mark_f.scale.x=mark_f.scale.y=mark_f.scale.z = 0.5
@@ -145,9 +147,10 @@ def area_compare():
     global valid_circles,intercept_right,intercept_left,slope_left,slope_right,middle_pose,slope, lenght_left,lenght_right,local_slope
     
     slope = (slope_left + slope_right)/2
-    
+   
+
     goal=geomsg.PoseStamped()
-    goal.header.frame_id="left_os1/os1_sensor"
+    goal.header.frame_id="right_os1/os1_sensor"
     
     if len(valid_circles) > 0:
         y_left = slope_left*valid_circles[:,0]+intercept_left
@@ -172,25 +175,66 @@ def area_compare():
         #             middle_pose=((valid_circles[indexes[0],0] + valid_circles[indexes[0]+1,0])/2,(valid_circles[indexes[0],1] + valid_circles[indexes[0]+1,1])/2)
                 
 
+        
 
+        dx=np.zeros(len(valid_circles),)
+        dy=np.zeros(len(valid_circles),)
+        dist=np.zeros(len(valid_circles),)
+        local_slope=np.zeros(len(valid_circles),)
         for i in range(len(valid_circles)-1):
-            dx=valid_circles[i+1,0]-valid_circles[i,0]
-            dy=valid_circles[i+1,1]-valid_circles[i,1]            
-            if math.sqrt(dx**2+dy**2) < 3.5  and lenght_right > 0.8 and lenght_left > 0.8 :
-                local_slope = np.arctan2((valid_circles[i+1,1]-valid_circles[i,1]),(valid_circles[i+1,0]- valid_circles[i,0]))
-                middle_pose=((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2)
+            dx[i]=valid_circles[i+1,0]-valid_circles[i,0]
+            dy[i]=valid_circles[i+1,1]-valid_circles[i,1] 
+            #local_slope[i] = abs(np.arctan2((valid_circles[i+1,1]-valid_circles[i,1]),(valid_circles[i+1,0]- valid_circles[i,0])))   
+        dx[-1]=valid_circles[-1,0]-valid_circles[0,0]
+        dy[-1]=valid_circles[-1,1]-valid_circles[0,1]
+        #local_slope[-1] = abs(np.arctan2((valid_circles[-1,1]-valid_circles[0,1]),(valid_circles[-1,0]- valid_circles[0,0])))
+        for j in range(len(valid_circles)):
+            dist[j]=math.sqrt(dx[j]**2 + dy[j]**2) 
+            a= np.where(dist > 1)
+            b= np.where(dist < 3)
+        valid_dist=np.intersect1d(a,b)
+        if len(valid_dist) > 0:
+            for k in valid_dist:
+                local_slope = np.arctan2((valid_circles[k+1,1]-valid_circles[k,1]),(valid_circles[k+1,0]- valid_circles[k,0]))
+                c=np.float(slope)+(math.pi/2) - math.radians(15)
+                d=np.float(slope)+(math.pi/2) + math.radians(15)
+                e=np.where(abs(local_slope) < d)
+                f=np.where(abs(local_slope) > c)
+                g=np.intersect1d(e,f)
+                if len(g) > 0:
+                    middle_pose=((valid_circles[g[0]+1,0] + valid_circles[g[0],0])/2,(valid_circles[g[0]+1,1] + valid_circles[g[0],1])/2)
+
+
+        
+            
+
+
+        # slope_rot=slope+math.pi
+        # if len(j) > 0:
+        #     middle_pose=((valid_circles[j[0],0] + valid_circles[j[0]+1,0])/2,(valid_circles[j[0],1] + valid_circles[j[0]+1,1])/2)
+
+        #b=np.where(local_slope[0] < (slope + (math.pi+math.radians(20)))
+        # print('a')
+        
+                    
+            # if math.sqrt(dx**2+dy**2) < 3.5  and lenght_right > 0.8 and lenght_left > 0.8 :
+            #     #a.append(i)
+            #     local_slope = np.arctan2((valid_circles[i,1]-valid_circles[i+1,1]),(valid_circles[i,0]- valid_circles[i+1,0]))
+            #     print (local_slope,slope)
                 
+            #     middle_pose=((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2)
+        
 
         if middle_pose is not None and local_slope is not None:
             goal.pose.position.x=middle_pose[0]
             goal.pose.position.y=middle_pose[1]
             goal.pose.position.z= -1.36
             if local_slope > 0:
-                goal.pose.orientation.z=np.sin((local_slope - math.pi/2)/2.0)
-                goal.pose.orientation.w=np.cos((local_slope - math.pi/2)/2.0)
+                goal.pose.orientation.z=np.sin((local_slope[0] - math.pi/2)/2.0)
+                goal.pose.orientation.w=np.cos((local_slope[0] - math.pi/2)/2.0)
             elif local_slope < 0:
-                goal.pose.orientation.z=np.sin((local_slope + math.pi/2)/2.0)
-                goal.pose.orientation.w=np.cos((local_slope + math.pi/2)/2.0)
+                goal.pose.orientation.z=np.sin((local_slope[0] + math.pi/2)/2.0)
+                goal.pose.orientation.w=np.cos((local_slope[0] + math.pi/2)/2.0)
 
         pub_goal_midle.publish(goal)
                 
