@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+
+<launch>
+
+    <!--  publish necessary topics for MPC waypoint converter-->
+    <node pkg="lidar_filters_pkg" type="lidar_road" name="curb_detection">
+        <param name="min_X" value="1.5" />
+        <param name="min_Y" value="-7.0" />
+        <param name="max_Y" value="7.0" />
+        <param name="min_Z" value="-1.2" />
+        <param name="max_Z" value="0.0" />
+    </node>
+    <node pkg="shell_ovaltrack_goalpose" type="oval_track" name="oval_track">
+        <param name="auto_cut_dist_param" value="false" />
+        <param name="cut_dist" value="0.4" />
+    </node>
+</launch>
