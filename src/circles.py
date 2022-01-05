@@ -22,9 +22,10 @@ valid_circles = None
 slope_left = None
 slope_right = None
 intercept_left=intercept_right= None
-trans_x = 1.938
-#trans_y = -0.931 
-trans_y = 0.229
+
+# #trans_x = 1.938
+# #trans_y = -0.931 
+# #trans_y = 0.229
 middle_pose = None
 pub_valid_circles = None
 pub_goal_midle = None
@@ -33,31 +34,47 @@ local_slope=None
 EPS=None
 Min_samples = None
 max_radius = None
-min_radius= None
+min_radius = None
 max_distance = None
-min_distance= None
+min_distance = None
+trans= None
+ouster_frame = None
 
+
+def tf_callback():
+    global trans,ouster_frame
+    tfBuffer = tf2_ros.Buffer()
+    listener = tf2_ros.TransformListener(tfBuffer)
+    
+    rate = rospy.Rate(20.0)
+    while not rospy.is_shutdown():
+        
+        try:
+            trans = tfBuffer.lookup_transform(ouster_frame, 'laser', rospy.Time())
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+            rate.sleep()
+            continue
 
 
 def config_callback(config,level):
-    global EPS,Min_samples,max_radius,min_radius,max_distance,min_distance
+    global EPS,Min_samples,max_radius,min_radius,max_distance,min_distance,ouster_frame
     EPS=config['dbscan_eps']
     Min_samples=config['dbscan_min_samples']
     max_radius=config['max_radius']
     min_radius=config['min_radius']
     max_distance = config['max_distance'] 
     min_distance = config['min_distance']
+    ouster_frame = config['ouster_frame']
     return config
 
 
 def point_cloud_callback(data):
-    global valid_circles, pub_valid_circles,EPS,Min_samples,max_radius,min_radius
+    global valid_circles, pub_valid_circles,EPS,Min_samples,max_radius,min_radius,trans,ouster_frame
     pc = ros_numpy.numpify(data)
     points=np.zeros((pc.shape[0],3))
     points[:,0]=pc['x']
     points[:,1]=pc['y']
     points[:,2]=pc['z']
-
     
     
     valid_circles=[]
@@ -90,7 +107,7 @@ def point_cloud_callback(data):
             i+=1
             mark_f = vismsg.Marker()
             mark_f.header.stamp= rospy.Time.now()
-            mark_f.header.frame_id = "right_os1/os1_sensor"
+            mark_f.header.frame_id = ouster_frame
             mark_f.type = mark_f.SPHERE
             mark_f.action = mark_f.ADD
             mark_f.scale.x=mark_f.scale.y=mark_f.scale.z = 0.5
@@ -132,12 +149,12 @@ def fit_circle_2d(x, y, w=[]):
     return xc, yc, r
 
 def left_lane_callback(msg):
-    global trans_x,trans_y,slope_left,intercept_left,lenght_left
+    global trans,slope_left,intercept_left,lenght_left
     x=np.zeros(len(msg.points),)
     y=np.zeros(len(msg.points),)
     for i in range (len(msg.points)):
-        x[i]=msg.points[i].x + trans_x
-        y[i]=msg.points[i].y + trans_y
+        x[i]=msg.points[i].x + trans.transform.translation.x
+        y[i]=msg.points[i].y + trans.transform.translation.y
     lenght_left = math.sqrt((x[-1] - x[0])**2 + (y[-1] - y[0])**2)
     model = LinearRegression().fit(x.reshape(-1,1),y.reshape(-1,1))
     slope_left = model.coef_
@@ -145,12 +162,12 @@ def left_lane_callback(msg):
 
    
 def right_lane_callback(msg):
-    global trans_x,trans_y,slope_right,intercept_right,lenght_right
+    global trans,slope_right,intercept_right,lenght_right
     x=np.zeros(len(msg.points),)
     y=np.zeros(len(msg.points),)
     for i in range (len(msg.points)):
-        x[i]=msg.points[i].x + trans_x
-        y[i]=msg.points[i].y + trans_y
+        x[i]=msg.points[i].x + trans.transform.translation.x
+        y[i]=msg.points[i].y + trans.transform.translation.y
 
 
     lenght_right = math.sqrt((x[-1] - x[0])**2 + (y[-1] - y[0])**2)
@@ -159,13 +176,13 @@ def right_lane_callback(msg):
     intercept_right = model.intercept_
 
 def area_compare():
-    global valid_circles,intercept_right,intercept_left,slope_left,slope_right,middle_pose,slope, lenght_left,lenght_right,local_slope,max_distance,min_distance
+    global valid_circles,intercept_right,intercept_left,slope_left,slope_right,middle_pose,slope, lenght_left,lenght_right,local_slope,max_distance,min_distance,ouster_frame
     
     slope = (slope_left + slope_right)/2
    
 
     goal=geomsg.PoseStamped()
-    goal.header.frame_id="right_os1/os1_sensor"
+    goal.header.frame_id=ouster_frame
     
     if len(valid_circles) > 0: #and slope_left is not None and slope_right is not None:
         y_left = slope_left*valid_circles[:,0]+intercept_left
@@ -286,6 +303,7 @@ def pub():
     pub_goal_midle=rospy.Publisher("/goal_midle",geomsg.PoseStamped,queue_size=1)
 
     srv=Server(SlalomConfig,config_callback)
+    tf_callback()
 
     rospy.spin()
        
