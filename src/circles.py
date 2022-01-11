@@ -198,13 +198,23 @@ def area_compare():
             positive_rotated_slope=slope[0]+(math.pi/2)
             negative_rotated_slope=slope[0]-(math.pi/2)
 
+            a=[]
+
             for i in range(len(valid_circles)-1):
                 dx=valid_circles[i+1,0]-valid_circles[i,0]
                 dy=valid_circles[i+1,1]-valid_circles[i,1]            
                 if math.sqrt(dx**2+dy**2) < max_distance and math.sqrt(dx**2+dy**2) > min_distance  and lenght_right > 0.8 and lenght_left > 0.8 :
                     local_slope = np.arctan2((valid_circles[i+1,1]-valid_circles[i,1]),(valid_circles[i+1,0]- valid_circles[i,0]))
                     if (local_slope > positive_rotated_slope - math.radians(20) and local_slope < positive_rotated_slope - math.radians(20)) or (local_slope < negative_rotated_slope + math.radians(20) and local_slope > negative_rotated_slope - math.radians(20)):   
-                        middle_pose=((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2)
+                        #middle_pose=((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2)
+                        a.append(((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2))
+                        if len(a) > 1:
+                            mat=np.zeros(len(a))
+                            for i in range(len(a)):
+                                mat[i]=math.sqrt(a[i][0]**2+a[i][1]**2)
+                                middle_pose=a[np.argmin(mat)]
+                        else:
+                            middle_pose=a[0] 
 
 
             if middle_pose is not None and local_slope is not None:
