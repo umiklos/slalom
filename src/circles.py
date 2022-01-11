@@ -22,15 +22,14 @@ valid_circles = None
 slope_left = None
 slope_right = None
 intercept_left=intercept_right= None
-
-# #trans_x = 1.938
-# #trans_y = -0.931 
-# #trans_y = 0.229
 middle_pose = None
 pub_valid_circles = None
 pub_goal_midle = None
 lenght_right = lenght_left = None
 local_slope=None
+
+#first_run=True
+
 EPS=None
 Min_samples = None
 max_radius = None
@@ -42,19 +41,20 @@ ouster_frame = None
 
 
 def tf_callback():
-    global trans,ouster_frame
+    global trans,ouster_frame,first_run
     tfBuffer = tf2_ros.Buffer()
     listener = tf2_ros.TransformListener(tfBuffer)
     
     rate = rospy.Rate(20.0)
     while not rospy.is_shutdown():
-        
+    
         try:
-            trans = tfBuffer.lookup_transform(ouster_frame, 'laser', rospy.Time())
+            trans = tfBuffer.lookup_transform(ouster_frame, 'laser', rospy.Time(0))
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
             rate.sleep()
             continue
-
+        break
+            
 
 def config_callback(config,level):
     global EPS,Min_samples,max_radius,min_radius,max_distance,min_distance,ouster_frame
@@ -69,7 +69,9 @@ def config_callback(config,level):
 
 
 def point_cloud_callback(data):
-    global valid_circles, pub_valid_circles,EPS,Min_samples,max_radius,min_radius,trans,ouster_frame
+    global valid_circles, pub_valid_circles,EPS,Min_samples,max_radius,min_radius,trans,ouster_frame,transform_received
+    #print(trans)
+
     pc = ros_numpy.numpify(data)
     points=np.zeros((pc.shape[0],3))
     points[:,0]=pc['x']
@@ -77,6 +79,7 @@ def point_cloud_callback(data):
     points[:,2]=pc['z']
     
     
+
     valid_circles=[]
     if len(points) > 0:
         clustering=DBSCAN(eps=EPS,min_samples=Min_samples).fit(points[:,0:2])
@@ -121,7 +124,7 @@ def point_cloud_callback(data):
             mark_f.id=i
             mark_f.pose.position.x = l[0]
             mark_f.pose.position.y = l[1]
-            mark_f.pose.position.z = 0.0
+            mark_f.pose.position.z = -1.36
             mark_f.lifetime=rospy.Duration(0.1)
             marker_arr.markers.append(mark_f)
         pub_valid_circles.publish(marker_arr)     
@@ -159,6 +162,7 @@ def left_lane_callback(msg):
     model = LinearRegression().fit(x.reshape(-1,1),y.reshape(-1,1))
     slope_left = model.coef_
     intercept_left = model.intercept_
+    # print(slope_left)
 
    
 def right_lane_callback(msg):
@@ -168,142 +172,69 @@ def right_lane_callback(msg):
     for i in range (len(msg.points)):
         x[i]=msg.points[i].x + trans.transform.translation.x
         y[i]=msg.points[i].y + trans.transform.translation.y
-
-
     lenght_right = math.sqrt((x[-1] - x[0])**2 + (y[-1] - y[0])**2)
     model = LinearRegression().fit(x.reshape(-1,1),y.reshape(-1,1))
     slope_right = model.coef_
     intercept_right = model.intercept_
+    # print(slope_right)
 
 def area_compare():
     global valid_circles,intercept_right,intercept_left,slope_left,slope_right,middle_pose,slope, lenght_left,lenght_right,local_slope,max_distance,min_distance,ouster_frame
     
-    slope = (slope_left + slope_right)/2
-   
 
-    goal=geomsg.PoseStamped()
-    goal.header.frame_id=ouster_frame
-    
-    if len(valid_circles) > 0: #and slope_left is not None and slope_right is not None:
-        y_left = slope_left*valid_circles[:,0]+intercept_left
-        y_right = slope_right*valid_circles[:,0]+intercept_right
+    if slope_left is not None and slope_right is not None:
+        slope = (slope_left + slope_right)/2
+
+        goal=geomsg.PoseStamped()
+        goal.header.frame_id=ouster_frame
         
-        y_mask = np.logical_and(valid_circles[:,1] > y_right,valid_circles[:,1] < y_left)
-        
-        valid_circles = valid_circles[y_mask[0]]
-        positive_rotated_slope=slope[0]+(math.pi/2)
-        negative_rotated_slope=slope[0]-(math.pi/2)
-
-        for i in range(len(valid_circles)-1):
-            dx=valid_circles[i+1,0]-valid_circles[i,0]
-            dy=valid_circles[i+1,1]-valid_circles[i,1]            
-            if math.sqrt(dx**2+dy**2) < max_distance and math.sqrt(dx**2+dy**2) > min_distance  and lenght_right > 0.8 and lenght_left > 0.8 :
-                local_slope = np.arctan2((valid_circles[i+1,1]-valid_circles[i,1]),(valid_circles[i+1,0]- valid_circles[i,0]))
-                #print (local_slope ,slope ,slope[0]+(math.pi/2),slope[0]-(math.pi/2) )
-                #print(negative_rotated_slope + math.radians(20))
-                if (local_slope > positive_rotated_slope - math.radians(20) and local_slope < positive_rotated_slope - math.radians(20)) or (local_slope < negative_rotated_slope + math.radians(20) and local_slope > negative_rotated_slope - math.radians(20)):   
-                #if (abs(local_slope) > np.float(slope)+(math.pi/2) - math.radians(15) or abs(local_slope) < np.float(slope)+(math.pi/2) + math.radians(15) ) or ((local_slope) < np.float(slope)+(math.pi/2) - math.radians(15) or (local_slope) > np.float(slope)+(math.pi/2) + math.radians(15))  :
-                    middle_pose=((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2)
-
-
-        # indexes=[]
-        # for i in range(len(valid_circles)-1):
-        #     dx=valid_circles[i+1,0]-valid_circles[i,0]
-        #     dy=valid_circles[i+1,1]-valid_circles[i,1]    
-        #     dist = math.sqrt(dx**2+dy**2)
-        #     if dist > 3.2 and dist < 3.6:
-        #         indexes.append(i)
-        #         if len(indexes) == 1:
-        #             local_slope=np.arctan2((valid_circles[indexes[0]+1,1]-valid_circles[indexes[0],1]),(valid_circles[indexes[0]+1,0]- valid_circles[indexes[0],0]))
-        #             # print(yaw,slope,abs(slope-yaw))
-        #             #if local_slope < slope + math.radians(20) or local_slope - math.radians(20):
-        #             middle_pose=((valid_circles[indexes[0],0] + valid_circles[indexes[0]+1,0])/2,(valid_circles[indexes[0],1] + valid_circles[indexes[0]+1,1])/2)
-                
-
-        
-
-        # dx=np.zeros(len(valid_circles),)
-        # dy=np.zeros(len(valid_circles),)
-        # dist=np.zeros(len(valid_circles),)
-        # local_slope=np.zeros(len(valid_circles),)
-        # for i in range(len(valid_circles)-1):
-        #     dx[i]=valid_circles[i+1,0]-valid_circles[i,0]
-        #     dy[i]=valid_circles[i+1,1]-valid_circles[i,1] 
-        #     #local_slope[i] = abs(np.arctan2((valid_circles[i+1,1]-valid_circles[i,1]),(valid_circles[i+1,0]- valid_circles[i,0])))   
-        # dx[-1]=valid_circles[-1,0]-valid_circles[0,0]
-        # dy[-1]=valid_circles[-1,1]-valid_circles[0,1]
-        # #local_slope[-1] = abs(np.arctan2((valid_circles[-1,1]-valid_circles[0,1]),(valid_circles[-1,0]- valid_circles[0,0])))
-        # for j in range(len(valid_circles)):
-        #     dist[j]=math.sqrt(dx[j]**2 + dy[j]**2) 
-        #     a= np.where(dist > 1)
-        #     b= np.where(dist < 3)
-        # valid_dist=np.intersect1d(a,b)
-        # if len(valid_dist) > 0:
-        #     for k in valid_dist:
-        #         local_slope = np.arctan2((valid_circles[k+1,1]-valid_circles[k,1]),(valid_circles[k+1,0]- valid_circles[k,0]))
-        #         c=np.float(slope)+(math.pi/2) - math.radians(15)
-        #         d=np.float(slope)+(math.pi/2) + math.radians(15)
-        #         e=np.where(abs(local_slope) < d)
-        #         f=np.where(abs(local_slope) > c)
-        #         g=np.intersect1d(e,f)
-        #         if len(g) > 0:
-        #             middle_pose=((valid_circles[g[0]+1,0] + valid_circles[g[0],0])/2,(valid_circles[g[0]+1,1] + valid_circles[g[0],1])/2)
-
-
-        
+        if len(valid_circles) > 0: #and slope_left is not None and slope_right is not None:
+            y_left = slope_left*valid_circles[:,0]+intercept_left
+            y_right = slope_right*valid_circles[:,0]+intercept_right
             
+            y_mask = np.logical_and(valid_circles[:,1] > y_right,valid_circles[:,1] < y_left)
+            
+            valid_circles = valid_circles[y_mask[0]]
+            positive_rotated_slope=slope[0]+(math.pi/2)
+            negative_rotated_slope=slope[0]-(math.pi/2)
+
+            for i in range(len(valid_circles)-1):
+                dx=valid_circles[i+1,0]-valid_circles[i,0]
+                dy=valid_circles[i+1,1]-valid_circles[i,1]            
+                if math.sqrt(dx**2+dy**2) < max_distance and math.sqrt(dx**2+dy**2) > min_distance  and lenght_right > 0.8 and lenght_left > 0.8 :
+                    local_slope = np.arctan2((valid_circles[i+1,1]-valid_circles[i,1]),(valid_circles[i+1,0]- valid_circles[i,0]))
+                    if (local_slope > positive_rotated_slope - math.radians(20) and local_slope < positive_rotated_slope - math.radians(20)) or (local_slope < negative_rotated_slope + math.radians(20) and local_slope > negative_rotated_slope - math.radians(20)):   
+                        middle_pose=((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2)
 
 
-        # slope_rot=slope+math.pi
-        # if len(j) > 0:
-        #     middle_pose=((valid_circles[j[0],0] + valid_circles[j[0]+1,0])/2,(valid_circles[j[0],1] + valid_circles[j[0]+1,1])/2)
+            if middle_pose is not None and local_slope is not None:
+                goal.pose.position.x=middle_pose[0]
+                goal.pose.position.y=middle_pose[1]
+                goal.pose.position.z= -1.36
 
-        #b=np.where(local_slope[0] < (slope + (math.pi+math.radians(20)))
-        # print('a')
-        
-                    
-            # if math.sqrt(dx**2+dy**2) < 3.5  and lenght_right > 0.8 and lenght_left > 0.8 :
-            #     #a.append(i)
-            #     local_slope = np.arctan2((valid_circles[i,1]-valid_circles[i+1,1]),(valid_circles[i,0]- valid_circles[i+1,0]))
-            #     print (local_slope,slope)
+                if local_slope > 0:
+                    goal.pose.orientation.z=np.sin((local_slope - math.pi/2)/2.0)
+                    goal.pose.orientation.w=np.cos((local_slope - math.pi/2)/2.0)
+                elif local_slope < 0:
+                    goal.pose.orientation.z=np.sin((local_slope + math.pi/2)/2.0)
+                    goal.pose.orientation.w=np.cos((local_slope + math.pi/2)/2.0)
                 
-            #     middle_pose=((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2)
-        
-
-        if middle_pose is not None and local_slope is not None:
-            goal.pose.position.x=middle_pose[0]
-            goal.pose.position.y=middle_pose[1]
-            goal.pose.position.z= -1.36
-            # if local_slope > 0:
-            #     goal.pose.orientation.z=np.sin((local_slope - math.pi/2)/2.0)
-            #     goal.pose.orientation.w=np.cos((local_slope - math.pi/2)/2.0)
-            # elif local_slope < 0:
-            #     goal.pose.orientation.z=np.sin((local_slope + math.pi/2)/2.0)
-            #     goal.pose.orientation.w=np.cos((local_slope + math.pi/2)/2.0)
-            #if slope > 0:
-            goal.pose.orientation.z=np.sin(slope/2.0)
-            goal.pose.orientation.w=np.cos(slope/2.0)
-            # elif slope < 0:
-            #     goal.pose.orientation.z=np.sin(slope/2.0)
-            #     goal.pose.orientation.w=np.cos(slope/2.0)
-
-        pub_goal_midle.publish(goal)
+            pub_goal_midle.publish(goal)
                 
 
 
     
 
 def pub():
-    global valid_circles,pub_valid_circles,pub_goal_midle
+    global valid_circles,pub_valid_circles,pub_goal_midle,first_run,transform_received
     rospy.init_node('circle_fitting')
+    srv=Server(SlalomConfig,config_callback)
+    tf_callback()
     rospy.Subscriber("/cloud_filtered_Box", senmsg.PointCloud2, point_cloud_callback)
-    rospy.Subscriber("/left_lane", vismsg.Marker, left_lane_callback)
+    rospy.Subscriber("/left_lane_", vismsg.Marker, left_lane_callback)
     rospy.Subscriber("/right_lane", vismsg.Marker, right_lane_callback)
     pub_valid_circles= rospy.Publisher("/valid_circles",vismsg.MarkerArray,queue_size=1)
     pub_goal_midle=rospy.Publisher("/goal_midle",geomsg.PoseStamped,queue_size=1)
-
-    srv=Server(SlalomConfig,config_callback)
-    tf_callback()
 
     rospy.spin()
        
