@@ -8,7 +8,7 @@ import visualization_msgs.msg as vismsg
 import ros_numpy
 import sensor_msgs.msg as senmsg
 from sklearn.cluster import DBSCAN
-import matplotlib.pyplot as plt
+
 import geometry_msgs.msg as geomsg
 import math
 import tf2_ros 
@@ -231,7 +231,7 @@ def pub():
     srv=Server(SlalomConfig,config_callback)
     tf_callback()
     rospy.Subscriber("/cloud_filtered_Box", senmsg.PointCloud2, point_cloud_callback)
-    rospy.Subscriber("/left_lane_", vismsg.Marker, left_lane_callback)
+    rospy.Subscriber("/left_lane", vismsg.Marker, left_lane_callback)
     rospy.Subscriber("/right_lane", vismsg.Marker, right_lane_callback)
     pub_valid_circles= rospy.Publisher("/valid_circles",vismsg.MarkerArray,queue_size=1)
     pub_goal_midle=rospy.Publisher("/goal_midle",geomsg.PoseStamped,queue_size=1)
