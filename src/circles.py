@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 
+from numpy.core.fromnumeric import argmin
 from scipy.spatial import distance
 import rospy
 import numpy as np
@@ -8,7 +9,6 @@ import visualization_msgs.msg as vismsg
 import ros_numpy
 import sensor_msgs.msg as senmsg
 from sklearn.cluster import DBSCAN
-
 import geometry_msgs.msg as geomsg
 import math
 import tf2_ros 
@@ -27,9 +27,6 @@ pub_valid_circles = None
 pub_goal_midle = None
 lenght_right = lenght_left = None
 local_slope=None
-
-#first_run=True
-
 EPS=None
 Min_samples = None
 max_radius = None
@@ -70,7 +67,6 @@ def config_callback(config,level):
 
 def point_cloud_callback(data):
     global valid_circles, pub_valid_circles,EPS,Min_samples,max_radius,min_radius,trans,ouster_frame,transform_received
-    #print(trans)
 
     pc = ros_numpy.numpify(data)
     points=np.zeros((pc.shape[0],3))
@@ -198,14 +194,22 @@ def area_compare():
             positive_rotated_slope=slope[0]+(math.pi/2)
             negative_rotated_slope=slope[0]-(math.pi/2)
 
+            a=[]
+
             for i in range(len(valid_circles)-1):
                 dx=valid_circles[i+1,0]-valid_circles[i,0]
                 dy=valid_circles[i+1,1]-valid_circles[i,1]            
                 if math.sqrt(dx**2+dy**2) < max_distance and math.sqrt(dx**2+dy**2) > min_distance  and lenght_right > 0.8 and lenght_left > 0.8 :
                     local_slope = np.arctan2((valid_circles[i+1,1]-valid_circles[i,1]),(valid_circles[i+1,0]- valid_circles[i,0]))
                     if (local_slope > positive_rotated_slope - math.radians(20) and local_slope < positive_rotated_slope - math.radians(20)) or (local_slope < negative_rotated_slope + math.radians(20) and local_slope > negative_rotated_slope - math.radians(20)):   
-                        middle_pose=((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2)
-
+                        a.append(((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2))
+                        if len(a) > 1:
+                            mat=np.zeros(len(a),)
+                            for i in range(len(a)):
+                                mat[i]=math.sqrt(a[i][0]**2+(a[i][1]**2))
+                            middle_pose=a[np.argmin(mat)]
+                        else: 
+                            middle_pose=a[0]                   
 
             if middle_pose is not None and local_slope is not None:
                 goal.pose.position.x=middle_pose[0]
