@@ -193,6 +193,7 @@ def area_compare():
             valid_circles = valid_circles[y_mask[0]]
             positive_rotated_slope=slope[0]+(math.pi/2)
             negative_rotated_slope=slope[0]-(math.pi/2)
+            #a 
 
             a=[]
 
