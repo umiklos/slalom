@@ -204,6 +204,7 @@ def area_compare():
                     local_slope = np.arctan2((valid_circles[i+1,1]-valid_circles[i,1]),(valid_circles[i+1,0]- valid_circles[i,0]))
                     if (local_slope > positive_rotated_slope - math.radians(20) and local_slope < positive_rotated_slope - math.radians(20)) or (local_slope < negative_rotated_slope + math.radians(20) and local_slope > negative_rotated_slope - math.radians(20)):   
                         a.append(((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2))
+                        valid_slope=local_slope
                         if len(a) > 1:
                             mat=np.zeros(len(a),)
                             for i in range(len(a)):
@@ -218,11 +219,11 @@ def area_compare():
                 goal.pose.position.z= -1.36
 
                 if local_slope > 0:
-                    goal.pose.orientation.z=np.sin((local_slope - math.pi/2)/2.0)
-                    goal.pose.orientation.w=np.cos((local_slope - math.pi/2)/2.0)
+                    goal.pose.orientation.z=np.sin((valid_slope - math.pi/2)/2.0)
+                    goal.pose.orientation.w=np.cos((valid_slope - math.pi/2)/2.0)
                 elif local_slope < 0:
-                    goal.pose.orientation.z=np.sin((local_slope + math.pi/2)/2.0)
-                    goal.pose.orientation.w=np.cos((local_slope + math.pi/2)/2.0)
+                    goal.pose.orientation.z=np.sin((valid_slope + math.pi/2)/2.0)
+                    goal.pose.orientation.w=np.cos((valid_slope + math.pi/2)/2.0)
                 
             pub_goal_midle.publish(goal)
                 
