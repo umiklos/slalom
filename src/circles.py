@@ -193,7 +193,7 @@ def area_compare():
             valid_circles = valid_circles[y_mask[0]]
             positive_rotated_slope=slope[0]+(math.pi/2)
             negative_rotated_slope=slope[0]-(math.pi/2)
-            #a 
+            
 
             a=[]
 
@@ -213,19 +213,19 @@ def area_compare():
                         else: 
                             middle_pose=a[0]                   
 
-            if middle_pose is not None and local_slope is not None:
-                goal.pose.position.x=middle_pose[0]
-                goal.pose.position.y=middle_pose[1]
-                goal.pose.position.z= -1.36
+                        if middle_pose is not None and valid_slope is not None:
+                            goal.pose.position.x=middle_pose[0]
+                            goal.pose.position.y=middle_pose[1]
+                            goal.pose.position.z= -1.36
 
-                if local_slope > 0:
-                    goal.pose.orientation.z=np.sin((valid_slope - math.pi/2)/2.0)
-                    goal.pose.orientation.w=np.cos((valid_slope - math.pi/2)/2.0)
-                elif local_slope < 0:
-                    goal.pose.orientation.z=np.sin((valid_slope + math.pi/2)/2.0)
-                    goal.pose.orientation.w=np.cos((valid_slope + math.pi/2)/2.0)
-                
-            pub_goal_midle.publish(goal)
+                            if valid_slope > 0:
+                                goal.pose.orientation.z=np.sin((valid_slope - math.pi/2)/2.0)
+                                goal.pose.orientation.w=np.cos((valid_slope - math.pi/2)/2.0)
+                            elif valid_slope < 0:
+                                goal.pose.orientation.z=np.sin((valid_slope + math.pi/2)/2.0)
+                                goal.pose.orientation.w=np.cos((valid_slope + math.pi/2)/2.0)
+                            
+                        pub_goal_midle.publish(goal)
                 
 
 
