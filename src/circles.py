@@ -25,6 +25,7 @@ intercept_left=intercept_right= None
 middle_pose = None
 pub_valid_circles = None
 pub_goal_midle = None
+pub_slope = None
 lenght_right = lenght_left = None
 local_slope=None
 EPS=None
@@ -38,7 +39,7 @@ ouster_frame = None
 
 
 def tf_callback():
-    global trans,ouster_frame,first_run
+    global trans,ouster_frame
     tfBuffer = tf2_ros.Buffer()
     listener = tf2_ros.TransformListener(tfBuffer)
     
@@ -120,7 +121,7 @@ def point_cloud_callback(data):
             mark_f.id=i
             mark_f.pose.position.x = l[0]
             mark_f.pose.position.y = l[1]
-            mark_f.pose.position.z = -1.36
+            mark_f.pose.position.z = 0.0
             mark_f.lifetime=rospy.Duration(0.1)
             marker_arr.markers.append(mark_f)
         pub_valid_circles.publish(marker_arr)     
@@ -194,8 +195,32 @@ def area_compare():
             positive_rotated_slope=slope[0]+(math.pi/2)
             negative_rotated_slope=slope[0]-(math.pi/2)
             
+            y=slope*25
+            
+            mark_s = vismsg.Marker()
+            mark_s.header.stamp= rospy.Time.now()
+            mark_s.header.frame_id = ouster_frame
+            mark_s.type = mark_s.LINE_STRIP
+            mark_s.action = mark_s.ADD
+            mark_s.scale.x=mark_s.scale.y=mark_s.scale.z = 0.5
+            mark_s.color.r = 0.1
+            mark_s.color.g = 0.4
+            mark_s.color.b = 0.9
+            mark_s.color.a = 0.9 # 90% visibility
+            mark_s.pose.orientation.x = mark_s.pose.orientation.y = mark_s.pose.orientation.z = 0.0
+            mark_s.pose.orientation.w = 1.0
+            mark_s.lifetime=rospy.Duration(0.1)
+            mark_s.points=[]
+            if y is not None:
+                p1=geomsg.Point(); p1.x=0.0;p1.y=0.0; p1.z=0.0
+                p2=geomsg.Point(); p2.x=25;p2.y=y; p2.z=0.0
+                mark_s.points.append(p1)
+                mark_s.points.append(p2)
 
+            pub_slope.publish(mark_s)
             a=[]
+
+
 
             for i in range(len(valid_circles)-1):
                 dx=valid_circles[i+1,0]-valid_circles[i,0]
@@ -204,7 +229,7 @@ def area_compare():
                     local_slope = np.arctan2((valid_circles[i+1,1]-valid_circles[i,1]),(valid_circles[i+1,0]- valid_circles[i,0]))
                     if (local_slope > positive_rotated_slope - math.radians(20) and local_slope < positive_rotated_slope - math.radians(20)) or (local_slope < negative_rotated_slope + math.radians(20) and local_slope > negative_rotated_slope - math.radians(20)):   
                         a.append(((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2))
-                        valid_slope=local_slope
+                        valid_slope=slope
                         if len(a) > 1:
                             mat=np.zeros(len(a),)
                             for i in range(len(a)):
@@ -219,11 +244,17 @@ def area_compare():
                             goal.pose.position.z= -1.36
 
                             if valid_slope > 0:
-                                goal.pose.orientation.z=np.sin((valid_slope - math.pi/2)/2.0)
-                                goal.pose.orientation.w=np.cos((valid_slope - math.pi/2)/2.0)
+                                goal.pose.orientation.z=np.sin((valid_slope)/2.0)
+                                goal.pose.orientation.w=np.cos((valid_slope)/2.0)
                             elif valid_slope < 0:
-                                goal.pose.orientation.z=np.sin((valid_slope + math.pi/2)/2.0)
-                                goal.pose.orientation.w=np.cos((valid_slope + math.pi/2)/2.0)
+                                goal.pose.orientation.z=np.sin((valid_slope)/2.0)
+                                goal.pose.orientation.w=np.cos((valid_slope)/2.0)
+                            # if valid_slope > 0:
+                            #     goal.pose.orientation.z=np.sin((valid_slope - math.pi/2)/2.0)
+                            #     goal.pose.orientation.w=np.cos((valid_slope - math.pi/2)/2.0)
+                            # elif valid_slope < 0:
+                            #     goal.pose.orientation.z=np.sin((valid_slope + math.pi/2)/2.0)
+                            #     goal.pose.orientation.w=np.cos((valid_slope + math.pi/2)/2.0)
                             
                         pub_goal_midle.publish(goal)
                 
@@ -232,7 +263,7 @@ def area_compare():
     
 
 def pub():
-    global valid_circles,pub_valid_circles,pub_goal_midle,first_run,transform_received
+    global valid_circles,pub_valid_circles,pub_goal_midle,first_run,transform_received,pub_slope
     rospy.init_node('circle_fitting')
     srv=Server(SlalomConfig,config_callback)
     tf_callback()
@@ -241,6 +272,7 @@ def pub():
     rospy.Subscriber("/right_lane", vismsg.Marker, right_lane_callback)
     pub_valid_circles= rospy.Publisher("/valid_circles",vismsg.MarkerArray,queue_size=1)
     pub_goal_midle=rospy.Publisher("/goal_midle",geomsg.PoseStamped,queue_size=1)
+    pub_slope=rospy.Publisher("/slope",vismsg.Marker, queue_size=1)
 
     rospy.spin()
        
