@@ -15,6 +15,8 @@ import tf2_ros
 from sklearn.linear_model import LinearRegression
 from dynamic_reconfigure.server import Server
 from slalom.cfg import SlalomConfig
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 slope = None
 free_space = None
@@ -79,7 +81,7 @@ def point_cloud_callback(data):
 
     valid_circles=[]
     if len(points) > 0:
-        clustering=DBSCAN(eps=EPS,min_samples=Min_samples).fit(points[:,0:2])
+        clustering=DBSCAN(eps=EPS,min_samples=Min_samples).fit(points[:,0:3])
 
         number_clusters= len(set(clustering.labels_)) - (1 if -1 in clustering.labels_ else 0)
         b=np.zeros((number_clusters,3))
@@ -91,7 +93,12 @@ def point_cloud_callback(data):
             b[i,0]=xc
             b[i,1]=yc
             b[i,2]=r
-        
+
+        fig = plt.figure(figsize=(4,4))
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(points[:,0],points[:,1],points[:,2],c=clustering.labels_)
+        #plt.scatter(points[:,0],points[:,1],c=clustering.labels_)
+        plt.show()
 
         circles_index = np.intersect1d(np.where(b[:,2] < max_radius),np.where(b[:,2] > min_radius))
         valid_circles = b[circles_index]
