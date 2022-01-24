@@ -69,7 +69,7 @@ def config_callback(config,level):
 
 
 def point_cloud_callback(data):
-    global valid_circles, pub_valid_circles,EPS,Min_samples,max_radius,min_radius,trans,ouster_frame,transform_received
+    global valid_circles, pub_valid_circles,EPS,Min_samples,max_radius,min_radius,trans,ouster_frame,transform_received,intercept_right,intercept_left,slope_left,slope_right
 
     pc = ros_numpy.numpify(data)
     points=np.zeros((pc.shape[0],3))
@@ -77,28 +77,35 @@ def point_cloud_callback(data):
     points[:,1]=pc['y']
     points[:,2]=pc['z']
     
-    
+    if slope_left is not None and slope_right is not None:
+        slope = (slope_left + slope_right)/2
 
-    valid_circles=[]
-    if len(points) > 0:
-        clustering=DBSCAN(eps=EPS,min_samples=Min_samples).fit(points[:,0:3])
+        y_left = slope_left*points[:,0]+intercept_left
+        y_right = slope_right*points[:,0]+intercept_right
 
-        number_clusters= len(set(clustering.labels_)) - (1 if -1 in clustering.labels_ else 0)
-        b=np.zeros((number_clusters,3))
-        points=np.column_stack((points,clustering.labels_))
-        for i in range(number_clusters):
-            a=np.where(points[:,3]==i)
+        y_mask = np.logical_and(points[:,1] > y_right,points[:,1] < y_left)
 
-            xc,yc,r=fit_circle_2d(points[a][:,0],points[a][:,1])
-            b[i,0]=xc
-            b[i,1]=yc
-            b[i,2]=r
+        points=points[y_mask[0]]
 
-        fig = plt.figure(figsize=(4,4))
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(points[:,0],points[:,1],points[:,2],c=clustering.labels_)
-        #plt.scatter(points[:,0],points[:,1],c=clustering.labels_)
-        plt.show()
+        if len(points) > 0:
+            clustering=DBSCAN(eps=EPS,min_samples=Min_samples).fit(points[:,0:3])
+
+            number_clusters= len(set(clustering.labels_)) - (1 if -1 in clustering.labels_ else 0)
+            b=np.zeros((number_clusters,3))
+            points=np.column_stack((points,clustering.labels_))
+            for i in range(number_clusters):
+                a=np.where(points[:,3]==i)
+
+                xc,yc,r=fit_circle_2d(points[a][:,0],points[a][:,1])
+                b[i,0]=xc
+                b[i,1]=yc
+                b[i,2]=r
+
+            fig = plt.figure(figsize=(4,4))
+            ax = fig.add_subplot(111, projection='3d')
+            ax.scatter(points[:,0],points[:,1],points[:,2],c=clustering.labels_)
+            #plt.scatter(points[:,0],points[:,1],c=clustering.labels_)
+            plt.show()
 
         circles_index = np.intersect1d(np.where(b[:,2] < max_radius),np.where(b[:,2] > min_radius))
         valid_circles = b[circles_index]
