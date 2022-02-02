@@ -28,18 +28,19 @@ pub_goal_midle = None
 pub_slope = None
 lenght_right = lenght_left = None
 local_slope=None
-EPS=None
+EPS = None
 Min_samples = None
 max_radius = None
 min_radius = None
 max_distance = None
 min_distance = None
-trans= None
+trans_ouster_laser = None
 ouster_frame = None
+trans_ouster_ground_link = None
 
 
 def tf_callback():
-    global trans,ouster_frame
+    global trans_ouster_laser,trans_ouster_ground_link,ouster_frame
     tfBuffer = tf2_ros.Buffer()
     listener = tf2_ros.TransformListener(tfBuffer)
     
@@ -47,7 +48,8 @@ def tf_callback():
     while not rospy.is_shutdown():
     
         try:
-            trans = tfBuffer.lookup_transform(ouster_frame, 'laser', rospy.Time(0))
+            trans_ouster_laser = tfBuffer.lookup_transform(ouster_frame, 'laser', rospy.Time(0))
+            trans_ouster_ground_link = tfBuffer.lookup_transform(ouster_frame, 'ground_link', rospy.Time(0))
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
             rate.sleep()
             continue
@@ -55,7 +57,7 @@ def tf_callback():
             
 
 def config_callback(config,level):
-    global EPS,Min_samples,max_radius,min_radius,max_distance,min_distance,ouster_frame
+    global EPS,Min_samples,max_radius,min_radius,max_distance,min_distance,ouster_frame,min_x,max_x,min_y,max_y,barrier_z,topic_name
     EPS=config['dbscan_eps']
     Min_samples=config['dbscan_min_samples']
     max_radius=config['max_radius']
@@ -63,11 +65,17 @@ def config_callback(config,level):
     max_distance = config['max_distance'] 
     min_distance = config['min_distance']
     ouster_frame = config['ouster_frame']
+    min_x = config['min_x'] 
+    max_x = config['max_x']
+    min_y = config['min_y'] 
+    max_y = config['max_y']  
+    barrier_z = config['barrier_z']
+    topic_name = config['topic_name']
     return config
 
 
 def point_cloud_callback(data):
-    global valid_circles, pub_valid_circles,EPS,Min_samples,max_radius,min_radius,trans,ouster_frame,transform_received
+    global valid_circles, pub_valid_circles,EPS,Min_samples,max_radius,min_radius,trans,ouster_frame,transform_received,trans_ouster_ground_link,min_x,max_x,min_y,max_y,barrier_z
 
     pc = ros_numpy.numpify(data)
     points=np.zeros((pc.shape[0],3))
@@ -75,7 +83,13 @@ def point_cloud_callback(data):
     points[:,1]=pc['y']
     points[:,2]=pc['z']
     
-    
+    xmask= np.logical_and(points[:,0] > min_x,points[:,0] < max_x)
+    ymask= np.logical_and(points[:,1] > min_y, points[:,1] < max_y )
+    zmask= points[:,2] > trans_ouster_ground_link.transform.translation.z + barrier_z
+
+    mask=np.logical_and(np.logical_and(xmask,ymask),zmask) 
+
+    points=points[mask]
 
     valid_circles=[]
     if len(points) > 0:
@@ -149,12 +163,12 @@ def fit_circle_2d(x, y, w=[]):
     return xc, yc, r
 
 def left_lane_callback(msg):
-    global trans,slope_left,intercept_left,lenght_left
+    global trans_ouster_laser,slope_left,intercept_left,lenght_left
     x=np.zeros(len(msg.points),)
     y=np.zeros(len(msg.points),)
     for i in range (len(msg.points)):
-        x[i]=msg.points[i].x + trans.transform.translation.x
-        y[i]=msg.points[i].y + trans.transform.translation.y
+        x[i]=msg.points[i].x + trans_ouster_laser.transform.translation.x
+        y[i]=msg.points[i].y + trans_ouster_laser.transform.translation.y
     lenght_left = math.sqrt((x[-1] - x[0])**2 + (y[-1] - y[0])**2)
     model = LinearRegression().fit(x.reshape(-1,1),y.reshape(-1,1))
     slope_left = model.coef_
@@ -163,12 +177,12 @@ def left_lane_callback(msg):
 
    
 def right_lane_callback(msg):
-    global trans,slope_right,intercept_right,lenght_right
+    global trans_ouster_laser,slope_right,intercept_right,lenght_right
     x=np.zeros(len(msg.points),)
     y=np.zeros(len(msg.points),)
     for i in range (len(msg.points)):
-        x[i]=msg.points[i].x + trans.transform.translation.x
-        y[i]=msg.points[i].y + trans.transform.translation.y
+        x[i]=msg.points[i].x + trans_ouster_laser.transform.translation.x
+        y[i]=msg.points[i].y + trans_ouster_laser.transform.translation.y
     lenght_right = math.sqrt((x[-1] - x[0])**2 + (y[-1] - y[0])**2)
     model = LinearRegression().fit(x.reshape(-1,1),y.reshape(-1,1))
     slope_right = model.coef_
@@ -249,12 +263,7 @@ def area_compare():
                             elif valid_slope < 0:
                                 goal.pose.orientation.z=np.sin((valid_slope)/2.0)
                                 goal.pose.orientation.w=np.cos((valid_slope)/2.0)
-                            # if valid_slope > 0:
-                            #     goal.pose.orientation.z=np.sin((valid_slope - math.pi/2)/2.0)
-                            #     goal.pose.orientation.w=np.cos((valid_slope - math.pi/2)/2.0)
-                            # elif valid_slope < 0:
-                            #     goal.pose.orientation.z=np.sin((valid_slope + math.pi/2)/2.0)
-                            #     goal.pose.orientation.w=np.cos((valid_slope + math.pi/2)/2.0)
+                            
                             
                         pub_goal_midle.publish(goal)
                 
@@ -263,11 +272,12 @@ def area_compare():
     
 
 def pub():
-    global valid_circles,pub_valid_circles,pub_goal_midle,first_run,transform_received,pub_slope
+    global valid_circles,pub_valid_circles,pub_goal_midle,first_run,transform_received,pub_slope,topic_name
     rospy.init_node('circle_fitting')
     srv=Server(SlalomConfig,config_callback)
     tf_callback()
-    rospy.Subscriber("/cloud_filtered_Box", senmsg.PointCloud2, point_cloud_callback)
+    rospy.Subscriber(topic_name, senmsg.PointCloud2, point_cloud_callback)
+    
     rospy.Subscriber("/left_lane", vismsg.Marker, left_lane_callback)
     rospy.Subscriber("/right_lane", vismsg.Marker, right_lane_callback)
     pub_valid_circles= rospy.Publisher("/valid_circles",vismsg.MarkerArray,queue_size=1)
