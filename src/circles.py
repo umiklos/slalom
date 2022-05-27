@@ -82,14 +82,18 @@ def point_cloud_callback(data):
     points[:,0]=pc['x']
     points[:,1]=pc['y']
     points[:,2]=pc['z']
+
+    
     
     xmask= np.logical_and(points[:,0] > min_x,points[:,0] < max_x)
     ymask= np.logical_and(points[:,1] > min_y, points[:,1] < max_y )
     zmask= points[:,2] > trans_ouster_ground_link.transform.translation.z + barrier_z
 
     mask=np.logical_and(np.logical_and(xmask,ymask),zmask) 
+    
 
     points=points[mask]
+    
 
     valid_circles=[]
     if len(points) > 0:
@@ -173,7 +177,7 @@ def left_lane_callback(msg):
     model = LinearRegression().fit(x.reshape(-1,1),y.reshape(-1,1))
     slope_left = model.coef_
     intercept_left = model.intercept_
-    # print(slope_left)
+    #print(slope_left)
 
    
 def right_lane_callback(msg):
@@ -187,7 +191,7 @@ def right_lane_callback(msg):
     model = LinearRegression().fit(x.reshape(-1,1),y.reshape(-1,1))
     slope_right = model.coef_
     intercept_right = model.intercept_
-    # print(slope_right)
+    
 
 def area_compare():
     global valid_circles,intercept_right,intercept_left,slope_left,slope_right,middle_pose,slope, lenght_left,lenght_right,local_slope,max_distance,min_distance,ouster_frame
@@ -195,7 +199,6 @@ def area_compare():
 
     if slope_left is not None and slope_right is not None:
         slope = (slope_left + slope_right)/2
-
         goal=geomsg.PoseStamped()
         goal.header.frame_id=ouster_frame
         
@@ -235,13 +238,14 @@ def area_compare():
             a=[]
 
 
-
             for i in range(len(valid_circles)-1):
                 dx=valid_circles[i+1,0]-valid_circles[i,0]
                 dy=valid_circles[i+1,1]-valid_circles[i,1]            
                 if math.sqrt(dx**2+dy**2) < max_distance and math.sqrt(dx**2+dy**2) > min_distance  and lenght_right > 0.8 and lenght_left > 0.8 :
                     local_slope = np.arctan2((valid_circles[i+1,1]-valid_circles[i,1]),(valid_circles[i+1,0]- valid_circles[i,0]))
-                    if (local_slope > positive_rotated_slope - math.radians(20) and local_slope < positive_rotated_slope - math.radians(20)) or (local_slope < negative_rotated_slope + math.radians(20) and local_slope > negative_rotated_slope - math.radians(20)):   
+                    #print(slope,local_slope)
+                    if (local_slope > positive_rotated_slope - math.radians(20) and local_slope < positive_rotated_slope - math.radians(20)) or (local_slope < negative_rotated_slope + math.radians(20) and local_slope > negative_rotated_slope - math.radians(20)):
+                    #if (local_slope > slope[0] - math.radians(20) and local_slope < slope[0] - math.radians(20)) or (local_slope < slope[0] + math.radians(20) and local_slope > slope[0] - math.radians(20)):       
                         a.append(((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2))
                         valid_slope=slope
                         if len(a) > 1:
@@ -258,11 +262,11 @@ def area_compare():
                             goal.pose.position.z= -1.36
 
                             if valid_slope > 0:
-                                goal.pose.orientation.z=np.sin((valid_slope)/2.0)
-                                goal.pose.orientation.w=np.cos((valid_slope)/2.0)
+                                goal.pose.orientation.z=np.sin((valid_slope + math.pi)/2.0)
+                                goal.pose.orientation.w=np.cos((valid_slope + math.pi) /2.0)
                             elif valid_slope < 0:
-                                goal.pose.orientation.z=np.sin((valid_slope)/2.0)
-                                goal.pose.orientation.w=np.cos((valid_slope)/2.0)
+                                goal.pose.orientation.z=np.sin((valid_slope-math.pi)/2.0)
+                                goal.pose.orientation.w=np.cos((valid_slope-math.pi)/2.0)
                             
                             
                         pub_goal_midle.publish(goal)
@@ -281,7 +285,7 @@ def pub():
     rospy.Subscriber("/left_lane", vismsg.Marker, left_lane_callback)
     rospy.Subscriber("/right_lane", vismsg.Marker, right_lane_callback)
     pub_valid_circles= rospy.Publisher("/valid_circles",vismsg.MarkerArray,queue_size=1)
-    pub_goal_midle=rospy.Publisher("/goal_midle",geomsg.PoseStamped,queue_size=1)
+    pub_goal_midle=rospy.Publisher("/goal_middle",geomsg.PoseStamped,queue_size=1)
     pub_slope=rospy.Publisher("/slope",vismsg.Marker, queue_size=1)
 
     rospy.spin()
