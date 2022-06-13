@@ -82,6 +82,7 @@ def point_cloud_callback(data):
 
     pc = ros_numpy.numpify(data)
     points=np.zeros((pc.shape[0],3))
+    print(pc.shape)
     points[:,0]=pc['x']
     points[:,1]=pc['y']
     points[:,2]=pc['z']
