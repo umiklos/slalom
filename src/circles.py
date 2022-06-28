@@ -336,32 +336,32 @@ def area_compare():
                 if math.sqrt(dx**2+dy**2) < max_distance and math.sqrt(dx**2+dy**2) > min_distance  and lenght_right > 0.8 and lenght_left > 0.8 :
                     local_slope = np.arctan2((valid_circles[i+1,1]-valid_circles[i,1]),(valid_circles[i+1,0]- valid_circles[i,0]))
                     #print(slope,local_slope)
-                    if (local_slope > positive_rotated_slope - math.radians(20) and local_slope < positive_rotated_slope - math.radians(20)) or (local_slope < negative_rotated_slope + math.radians(20) and local_slope > negative_rotated_slope - math.radians(20)):
+                    #if (local_slope > positive_rotated_slope - math.radians(20) and local_slope < positive_rotated_slope - math.radians(20)) or (local_slope < negative_rotated_slope + math.radians(20) and local_slope > negative_rotated_slope - math.radians(20)):
                     #if (local_slope > slope[0] - math.radians(20) and local_slope < slope[0] - math.radians(20)) or (local_slope < slope[0] + math.radians(20) and local_slope > slope[0] - math.radians(20)):       
-                        a.append(((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2))
-                        valid_slope=slope
-                        if len(a) > 1:
-                            mat=np.zeros(len(a),)
-                            for i in range(len(a)):
-                                mat[i]=math.sqrt(a[i][0]**2+(a[i][1]**2))
-                            middle_pose=a[np.argmin(mat)]
-                        else: 
-                            middle_pose=a[0]                   
+                    a.append(((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2))
+                    valid_slope=slope
+                    if len(a) > 1:
+                        mat=np.zeros(len(a),)
+                        for i in range(len(a)):
+                            mat[i]=math.sqrt(a[i][0]**2+(a[i][1]**2))
+                        middle_pose=a[np.argmin(mat)]
+                    else: 
+                        middle_pose=a[0]                   
 
-                        if middle_pose is not None and valid_slope is not None:
-                            goal.pose.position.x=middle_pose[0]
-                            goal.pose.position.y=middle_pose[1]
-                            goal.pose.position.z= -1.36
+                    if middle_pose is not None and valid_slope is not None:
+                        goal.pose.position.x=middle_pose[0]
+                        goal.pose.position.y=middle_pose[1]
+                        goal.pose.position.z= -1.36
 
-                            if valid_slope > 0:
-                                goal.pose.orientation.z=np.sin((valid_slope + math.pi)/2.0)
-                                goal.pose.orientation.w=np.cos((valid_slope + math.pi) /2.0)
-                            elif valid_slope < 0:
-                                goal.pose.orientation.z=np.sin((valid_slope-math.pi)/2.0)
-                                goal.pose.orientation.w=np.cos((valid_slope-math.pi)/2.0)
-                            
-                            
-                        pub_goal_midle.publish(goal)
+                        if valid_slope > 0:
+                            goal.pose.orientation.z=np.sin((valid_slope + math.pi)/2.0)
+                            goal.pose.orientation.w=np.cos((valid_slope + math.pi) /2.0)
+                        elif valid_slope < 0:
+                            goal.pose.orientation.z=np.sin((valid_slope-math.pi)/2.0)
+                            goal.pose.orientation.w=np.cos((valid_slope-math.pi)/2.0)
+                        
+                        
+                    pub_goal_midle.publish(goal)
                 
 
 
