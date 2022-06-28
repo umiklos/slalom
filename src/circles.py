@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 
-from turtle import shape
+
 from numpy.core.fromnumeric import argmin
 from scipy.spatial import distance
 import rospy
@@ -12,7 +12,6 @@ import sensor_msgs.msg as senmsg
 from sklearn.cluster import DBSCAN
 import geometry_msgs.msg as geomsg
 import math
-import tf2_ros 
 from sklearn.linear_model import LinearRegression
 from dynamic_reconfigure.server import Server
 from slalom.cfg import SlalomConfig
