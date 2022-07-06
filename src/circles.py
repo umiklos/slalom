@@ -31,7 +31,7 @@ pub_sloper= None
 lenght_right = lenght_left = None
 local_slope=None
 EPS = 0.3 #None
-min_x = -30.0
+min_x = -40.0
 max_x = -1.0
 min_y = -15.0
 max_y = 15.0
@@ -41,7 +41,7 @@ Min_samples = 20 # None
 max_radius = None
 min_radius = 0.5 #None
 max_distance = 4.8 # None
-min_distance = 3.2  #None
+min_distance = 3.0  #None
 trans_ouster_laser = None
 ouster_frame = None
 trans_ouster_ground_link = None
