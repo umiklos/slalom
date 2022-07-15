@@ -30,18 +30,18 @@ pub_slopel= None
 pub_sloper= None
 lenght_right = lenght_left = None
 local_slope=None
-EPS = 0.3 #None
+EPS = 2.0 #None
 min_x = -40.0
 max_x = -1.0
 min_y = -15.0
 max_y = 15.0
 min_z = -1.1 + 0.75
 max_z = 0.0
-Min_samples = 20 # None
-max_radius = None
-min_radius = 0.5 #None
+Min_samples = 5 # None
+max_radius = 0.5
+min_radius = 0.1 #None
 max_distance = 4.8 # None
-min_distance = 3.0  #None
+min_distance = 2.0  #None
 trans_ouster_laser = None
 ouster_frame = None
 trans_ouster_ground_link = None
@@ -103,7 +103,7 @@ def point_cloud_callback(data):
 
     valid_circles=[]
     if len(points) > 0:
-        clustering=DBSCAN(eps=EPS,min_samples=Min_samples).fit(points[:,0:2])
+        clustering=DBSCAN(eps=EPS,min_samples=Min_samples).fit(points[:,0:3])
 
         number_clusters= len(set(clustering.labels_)) - (1 if -1 in clustering.labels_ else 0)
         b=np.zeros((number_clusters,3))
@@ -116,7 +116,7 @@ def point_cloud_callback(data):
             b[i,1]=yc
             b[i,2]=r
         
-        b_mask=b[:,2] < min_radius
+        b_mask=np.logical_and(b[:,2] < max_radius , b[:,2] > min_radius)
         
         valid_circles = b[b_mask]
         area_compare()
