@@ -15,6 +15,15 @@ import math
 from sklearn.linear_model import LinearRegression
 from dynamic_reconfigure.server import Server
 from slalom.cfg import SlalomConfig
+from jsk_rviz_plugins.msg import OverlayText
+import os
+from sensor_msgs import point_cloud2
+from sensor_msgs.msg import PointCloud2, PointField
+from std_msgs.msg import Header
+import struct
+
+
+
 
 slope = None
 free_space = None
@@ -36,7 +45,7 @@ max_x = -1.0
 min_y = -15.0
 max_y = 15.0
 min_z = -1.1 + 0.75
-max_z = 0.0
+max_z = 2.0
 Min_samples = 5 # None
 max_radius = 0.5
 min_radius = 0.1 #None
@@ -84,10 +93,9 @@ xl0,xr0,yl0,yr0= None,None,None,None
 
 
 def point_cloud_callback(data):
-    global valid_circles, pub_valid_circles,EPS,Min_samples,max_radius,min_radius,trans,ouster_frame,transform_received,trans_ouster_ground_link,min_x,max_x,min_y,max_y,barrier_z
+    global valid_circles, pub_valid_circles,EPS,Min_samples,max_radius,min_radius,trans,ouster_frame,transform_received,trans_ouster_ground_link,min_x,max_x,min_y,max_y,barrier_z,pub_circles,pub_cylinder_points,pub_outlier_points
 
     pc = ros_numpy.numpify(data)
-
 
     xmask = np.logical_and(pc['x'] > min_x,pc['x'] < max_x)
     ymask = np.logical_and(pc['y'] > min_y,pc['y'] < max_y)
@@ -99,14 +107,30 @@ def point_cloud_callback(data):
     points[:,0]=pc['x'][mask]
     points[:,1]=pc['y'][mask]
     points[:,2]=pc['z'][mask]
+
     
+    #rgb = struct.unpack('I', struct.pack('BBBB', 1, 1, 1, 1))[0]
+
+    fields = [PointField('x', 0, PointField.FLOAT32, 1),
+            PointField('y', 4, PointField.FLOAT32, 1),
+            PointField('z', 8, PointField.FLOAT32, 1),
+            # PointField('r', 12, PointField.FLOAT32, 1),
+            # PointField('g', 16, PointField.FLOAT32, 1),
+            # PointField('b', 20, PointField.FLOAT32, 1),
+            # PointField('a', 24, PointField.FLOAT32, 1),
+            ]
+    header = Header()
+    header.frame_id = "os1_sensor"
+
+  
+
 
     valid_circles=[]
     if len(points) > 0:
         clustering=DBSCAN(eps=EPS,min_samples=Min_samples).fit(points[:,0:3])
 
-        number_clusters= len(set(clustering.labels_)) - (1 if -1 in clustering.labels_ else 0)
-        b=np.zeros((number_clusters,3))
+        number_clusters = len(set(clustering.labels_)) - (1 if -1 in clustering.labels_ else 0)
+        b=np.zeros((number_clusters,4))
         points=np.column_stack((points,clustering.labels_))
         for i in range(number_clusters):
             a=np.where(points[:,3]==i)
@@ -114,19 +138,87 @@ def point_cloud_callback(data):
             xc,yc,r=fit_circle_2d(points[a][:,0],points[a][:,1])
             b[i,0]=xc
             b[i,1]=yc
-            b[i,2]=r
+            b[i,2]=r 
+            b[i,3]=len(points[a])
+      
+            
+        b_mask = np.logical_and(b[:,2] < max_radius , b[:,2] > min_radius)
         
-        b_mask=np.logical_and(b[:,2] < max_radius , b[:,2] > min_radius)
-        
+        outlier = points[np.where(points[:,3]== -1)]
+    
         valid_circles = b[b_mask]
         area_compare()
 
-    marker_arr=vismsg.MarkerArray() 
-    marker_arr.markers=[]
+        #rgba_a=np.ones((len(points),1))
+        # rgba=np.zeros((len(points),4))
+        # rgba[:,0:4]=0.0
+        # rgba[:,3]=1.0
 
+        # #rgba=np.column_stack((rgba_rgb,rgba_a))
+
+        # black_points=np.column_stack((points[:,0:3],rgba))
+        
+
+        
+        pc2 = point_cloud2.create_cloud(header, fields,points[:,0:3])
+        pc2_outlier = point_cloud2.create_cloud(header, fields, outlier[:,0:3])
+
+        pub_outlier_points.publish(pc2_outlier)
+        pub_cylinder_points.publish(pc2)
+    
+        
+
+
+    # if len(points[a]) > 0:
+    #     #i=0
+    #     for m in range(number_clusters):
+    #         #i+=1
+    #         mark_p = vismsg.Marker()
+    #         mark_p.header.stamp= rospy.Time.now()
+    #         mark_p.header.frame_id = 'os1_sensor' #ouster_frame
+    #         mark_p.type = mark_p.SPHERE
+    #         mark_p.action = mark_p.ADD
+    #         mark_p.scale.x=mark_p.scale.y=mark_p.scale.z = 0.5
+
+    #         mark_p.color.r = 0.1
+    #         mark_p.color.g = 0.4
+    #         mark_p.color.b = 0.9
+    #         mark_p.color.a = 0.9 # 90% visibility
+    #         mark_p.pose.orientation.x = mark_p.pose.orientation.y = mark_p.pose.orientation.z = 0.0
+    #         mark_p.pose.orientation.w = 1.0
+    #         mark_p.id=m
+
+
+    #         mark_p.pose.position.x = 0.0
+    #         mark_p.pose.position.y = 0.0
+    #         mark_p.pose.position.z = 0.0
+
+    #         mark_p.points=[]
+
+            
+            
+    #             # p = geomsg.Point(); p.x = m; p.y = y_kor[k][l]; p.z = 0.0
+    #             # mark_c.points.append(p)
+
+    #         mark_p.lifetime=rospy.Duration(0.1)
+    #         marker_points_arr.markers.append(mark_p)
+    #         print(a, number_clusters)
+
+
+    # pub_cylinder_points.publish(marker_points_arr)
+
+
+        
+
+
+    marker_arr=vismsg.MarkerArray() 
+    #marker_circle = vismsg.MarkerArray()
+    marker_arr.markers=[]
+    #marker_circle.markers=[]
 
     if pub_valid_circles is not None:
         i=0
+        j=0
         for l in valid_circles:
             i+=1
             mark_f = vismsg.Marker()
@@ -147,7 +239,60 @@ def point_cloud_callback(data):
             mark_f.pose.position.y = l[1]
             mark_f.pose.position.z = 0.0
             mark_f.lifetime=rospy.Duration(0.1)
+
+            marker_lin_vel3 = vismsg.Marker()
+            marker_lin_vel3.type = marker_lin_vel3.TEXT_VIEW_FACING
+            marker_lin_vel3.pose.position.x = l[0]
+            marker_lin_vel3.pose.position.y = l[1]
+            marker_lin_vel3.pose.position.z = 0.7
+            marker_lin_vel3.ns = "linvel"
+            marker_lin_vel3.id=i
+            marker_lin_vel3.header.frame_id = "os1_sensor"
+            marker_lin_vel3.color.r = 0.0
+            marker_lin_vel3.color.g = 0.0
+            marker_lin_vel3.color.b = 0.0
+            marker_lin_vel3.color.a = 1.0
+            marker_lin_vel3.scale.z = 2.0
+            marker_lin_vel3.lifetime=rospy.Duration(0.1)
+
+            marker_lin_vel3.text='r='+str(format(l[2],'.2f')) + os.linesep + 'Points=' + str(l[3])
             marker_arr.markers.append(mark_f)
+
+
+            marker_arr.markers.append(marker_lin_vel3)
+
+        # for j in range(len(valid_circles)):
+        #     j+=1
+        #     mark_c = vismsg.Marker()
+        #     mark_c.header.stamp= rospy.Time.now()
+        #     mark_c.header.frame_id = 'os1_sensor' #ouster_frame
+        #     mark_c.type = mark_c.LINE_STRIP
+        #     mark_c.action = mark_c.ADD
+        #     mark_c.scale.x=mark_c.scale.y=mark_c.scale.z = 0.5
+
+        #     mark_c.color.r = 1.0
+        #     mark_c.color.g = 1.0
+        #     mark_c.color.b = 1.0
+        #     mark_c.color.a = 0.9 # 90% visibility
+        #     mark_c.pose.orientation.x = mark_c.pose.orientation.y = mark_c.pose.orientation.z = 0.0
+        #     mark_c.pose.orientation.w = 1.0
+        #     mark_c.id=j
+        #     mark_c.pose.position.x = 0.0
+        #     mark_c.pose.position.y = 0.0
+        #     mark_c.pose.position.z = 0.0
+        #     mark_c.lifetime=rospy.Duration(0.1)
+
+        #     mark_c.points=[]
+
+        #     for k in range(len(x_kor)):
+        #         for l in range(629):
+        #             p = geomsg.Point(); p.x = x_kor[k][l]; p.y = y_kor[k][l]; p.z = 0.0
+        #             mark_c.points.append(p)
+        #     marker_circle.markers.append(mark_c)
+
+
+
+        # pub_circles.publish(marker_circle)
         pub_valid_circles.publish(marker_arr)     
                 
   
@@ -368,7 +513,7 @@ def area_compare():
     
 
 def pub():
-    global valid_circles,pub_valid_circles,pub_goal_midle,first_run,transform_received,pub_slope,topic_name,pub_slopel,pub_sloper
+    global valid_circles,pub_valid_circles,pub_goal_midle,first_run,transform_received,pub_slope,topic_name,pub_slopel,pub_sloper,pub_circles,pub_cylinder_points,pub_outlier_points
     rospy.init_node('circle_fitting')
     #srv=Server(SlalomConfig,config_callback)
     #tf_callback()
@@ -377,6 +522,9 @@ def pub():
     rospy.Subscriber("/left_lane", vismsg.Marker, left_lane_callback)
     rospy.Subscriber("/right_lane", vismsg.Marker, right_lane_callback)
     pub_valid_circles= rospy.Publisher("/valid_circles",vismsg.MarkerArray,queue_size=1)
+    #pub_circles= rospy.Publisher("/circles",vismsg.MarkerArray,queue_size=1)
+    pub_outlier_points= rospy.Publisher("/outliers",senmsg.PointCloud2,queue_size=1)
+    pub_cylinder_points= rospy.Publisher("/cylinder_points",senmsg.PointCloud2,queue_size=1)
     pub_goal_midle=rospy.Publisher("/goal_middle",geomsg.PoseStamped,queue_size=1)
     pub_slope=rospy.Publisher("/slope",vismsg.Marker, queue_size=1)
     pub_slopel=rospy.Publisher("/slope_left",vismsg.Marker, queue_size=1)
