@@ -15,7 +15,6 @@ import math
 from sklearn.linear_model import LinearRegression
 from dynamic_reconfigure.server import Server
 from slalom.cfg import SlalomConfig
-from jsk_rviz_plugins.msg import OverlayText
 import os
 from sensor_msgs import point_cloud2
 from sensor_msgs.msg import PointCloud2, PointField
