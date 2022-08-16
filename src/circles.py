@@ -39,15 +39,15 @@ pub_slopel= None
 pub_sloper= None
 lenght_right = lenght_left = None
 local_slope=None
-EPS = 2.0 #None
+EPS = 1.0 #None
 min_x = -40.0
 max_x = -1.0
 min_y = -15.0
 max_y = 15.0
-min_z = -1.1 + 0.75
-max_z = 2.0
-Min_samples = 5 # None
-max_radius = 0.5
+min_z = -1.1 + 0.8
+max_z = 0.0
+Min_samples = 20 # None
+max_radius = 0.8
 min_radius = 0.1 #None
 max_distance = 4.8 # None
 min_distance = 2.0  #None
@@ -109,8 +109,6 @@ def point_cloud_callback(data):
     points[:,2]=pc['z'][mask]
 
     
-    #rgb = struct.unpack('I', struct.pack('BBBB', 1, 1, 1, 1))[0]
-
     fields = [PointField('x', 0, PointField.FLOAT32, 1),
             PointField('y', 4, PointField.FLOAT32, 1),
             PointField('z', 8, PointField.FLOAT32, 1),
@@ -148,152 +146,67 @@ def point_cloud_callback(data):
     
         valid_circles = b[b_mask]
         area_compare()
-
-        #rgba_a=np.ones((len(points),1))
-        # rgba=np.zeros((len(points),4))
-        # rgba[:,0:4]=0.0
-        # rgba[:,3]=1.0
-
-        # #rgba=np.column_stack((rgba_rgb,rgba_a))
-
-        # black_points=np.column_stack((points[:,0:3],rgba))
-        
-
-        
+               
         pc2 = point_cloud2.create_cloud(header, fields,points[:,0:3])
         pc2_outlier = point_cloud2.create_cloud(header, fields, outlier[:,0:3])
 
         pub_outlier_points.publish(pc2_outlier)
         pub_cylinder_points.publish(pc2)
-    
+       
+
+
+        marker_arr=vismsg.MarkerArray() 
+        
         
 
+        if pub_valid_circles is not None:
+            marker_arr.markers=[]
+            i=0
+            j=0
+            for l in valid_circles:
+                i+=1
+                mark_f = vismsg.Marker()
+                mark_f.header.stamp= rospy.Time.now()
+                mark_f.header.frame_id = 'os1_sensor' #ouster_frame
+                mark_f.type = mark_f.SPHERE
+                mark_f.action = mark_f.ADD
+                mark_f.scale.x=mark_f.scale.y=mark_f.scale.z = 0.5
 
-    # if len(points[a]) > 0:
-    #     #i=0
-    #     for m in range(number_clusters):
-    #         #i+=1
-    #         mark_p = vismsg.Marker()
-    #         mark_p.header.stamp= rospy.Time.now()
-    #         mark_p.header.frame_id = 'os1_sensor' #ouster_frame
-    #         mark_p.type = mark_p.SPHERE
-    #         mark_p.action = mark_p.ADD
-    #         mark_p.scale.x=mark_p.scale.y=mark_p.scale.z = 0.5
+                mark_f.color.r = 0.1
+                mark_f.color.g = 0.4
+                mark_f.color.b = 0.9
+                mark_f.color.a = 0.9 # 90% visibility
+                mark_f.pose.orientation.x = mark_f.pose.orientation.y = mark_f.pose.orientation.z = 0.0
+                mark_f.pose.orientation.w = 1.0
+                mark_f.id=i
+                mark_f.pose.position.x = l[0]
+                mark_f.pose.position.y = l[1]
+                mark_f.pose.position.z = 0.0
+                mark_f.lifetime=rospy.Duration(0.1)
 
-    #         mark_p.color.r = 0.1
-    #         mark_p.color.g = 0.4
-    #         mark_p.color.b = 0.9
-    #         mark_p.color.a = 0.9 # 90% visibility
-    #         mark_p.pose.orientation.x = mark_p.pose.orientation.y = mark_p.pose.orientation.z = 0.0
-    #         mark_p.pose.orientation.w = 1.0
-    #         mark_p.id=m
+                marker_lin_vel3 = vismsg.Marker()
+                marker_lin_vel3.type = marker_lin_vel3.TEXT_VIEW_FACING
+                marker_lin_vel3.pose.position.x = l[0]
+                marker_lin_vel3.pose.position.y = l[1]
+                marker_lin_vel3.pose.position.z = 0.7
+                marker_lin_vel3.ns = "linvel"
+                marker_lin_vel3.id=i
+                marker_lin_vel3.header.frame_id = "os1_sensor"
+                marker_lin_vel3.color.r = 0.0
+                marker_lin_vel3.color.g = 0.0
+                marker_lin_vel3.color.b = 0.0
+                marker_lin_vel3.color.a = 1.0
+                marker_lin_vel3.scale.z = 2.0
+                marker_lin_vel3.lifetime=rospy.Duration(0.1)
 
-
-    #         mark_p.pose.position.x = 0.0
-    #         mark_p.pose.position.y = 0.0
-    #         mark_p.pose.position.z = 0.0
-
-    #         mark_p.points=[]
-
-            
-            
-    #             # p = geomsg.Point(); p.x = m; p.y = y_kor[k][l]; p.z = 0.0
-    #             # mark_c.points.append(p)
-
-    #         mark_p.lifetime=rospy.Duration(0.1)
-    #         marker_points_arr.markers.append(mark_p)
-    #         print(a, number_clusters)
+                marker_lin_vel3.text='r='+str(format(l[2],'.2f')) + os.linesep + 'Points=' + str(l[3])
+                marker_arr.markers.append(mark_f)
 
 
-    # pub_cylinder_points.publish(marker_points_arr)
-
+                marker_arr.markers.append(marker_lin_vel3)
 
         
-
-
-    marker_arr=vismsg.MarkerArray() 
-    #marker_circle = vismsg.MarkerArray()
-    marker_arr.markers=[]
-    #marker_circle.markers=[]
-
-    if pub_valid_circles is not None:
-        i=0
-        j=0
-        for l in valid_circles:
-            i+=1
-            mark_f = vismsg.Marker()
-            mark_f.header.stamp= rospy.Time.now()
-            mark_f.header.frame_id = 'os1_sensor' #ouster_frame
-            mark_f.type = mark_f.SPHERE
-            mark_f.action = mark_f.ADD
-            mark_f.scale.x=mark_f.scale.y=mark_f.scale.z = 0.5
-
-            mark_f.color.r = 0.1
-            mark_f.color.g = 0.4
-            mark_f.color.b = 0.9
-            mark_f.color.a = 0.9 # 90% visibility
-            mark_f.pose.orientation.x = mark_f.pose.orientation.y = mark_f.pose.orientation.z = 0.0
-            mark_f.pose.orientation.w = 1.0
-            mark_f.id=i
-            mark_f.pose.position.x = l[0]
-            mark_f.pose.position.y = l[1]
-            mark_f.pose.position.z = 0.0
-            mark_f.lifetime=rospy.Duration(0.1)
-
-            marker_lin_vel3 = vismsg.Marker()
-            marker_lin_vel3.type = marker_lin_vel3.TEXT_VIEW_FACING
-            marker_lin_vel3.pose.position.x = l[0]
-            marker_lin_vel3.pose.position.y = l[1]
-            marker_lin_vel3.pose.position.z = 0.7
-            marker_lin_vel3.ns = "linvel"
-            marker_lin_vel3.id=i
-            marker_lin_vel3.header.frame_id = "os1_sensor"
-            marker_lin_vel3.color.r = 0.0
-            marker_lin_vel3.color.g = 0.0
-            marker_lin_vel3.color.b = 0.0
-            marker_lin_vel3.color.a = 1.0
-            marker_lin_vel3.scale.z = 2.0
-            marker_lin_vel3.lifetime=rospy.Duration(0.1)
-
-            marker_lin_vel3.text='r='+str(format(l[2],'.2f')) + os.linesep + 'Points=' + str(l[3])
-            marker_arr.markers.append(mark_f)
-
-
-            marker_arr.markers.append(marker_lin_vel3)
-
-        # for j in range(len(valid_circles)):
-        #     j+=1
-        #     mark_c = vismsg.Marker()
-        #     mark_c.header.stamp= rospy.Time.now()
-        #     mark_c.header.frame_id = 'os1_sensor' #ouster_frame
-        #     mark_c.type = mark_c.LINE_STRIP
-        #     mark_c.action = mark_c.ADD
-        #     mark_c.scale.x=mark_c.scale.y=mark_c.scale.z = 0.5
-
-        #     mark_c.color.r = 1.0
-        #     mark_c.color.g = 1.0
-        #     mark_c.color.b = 1.0
-        #     mark_c.color.a = 0.9 # 90% visibility
-        #     mark_c.pose.orientation.x = mark_c.pose.orientation.y = mark_c.pose.orientation.z = 0.0
-        #     mark_c.pose.orientation.w = 1.0
-        #     mark_c.id=j
-        #     mark_c.pose.position.x = 0.0
-        #     mark_c.pose.position.y = 0.0
-        #     mark_c.pose.position.z = 0.0
-        #     mark_c.lifetime=rospy.Duration(0.1)
-
-        #     mark_c.points=[]
-
-        #     for k in range(len(x_kor)):
-        #         for l in range(629):
-        #             p = geomsg.Point(); p.x = x_kor[k][l]; p.y = y_kor[k][l]; p.z = 0.0
-        #             mark_c.points.append(p)
-        #     marker_circle.markers.append(mark_c)
-
-
-
-        # pub_circles.publish(marker_circle)
-        pub_valid_circles.publish(marker_arr)     
+            pub_valid_circles.publish(marker_arr)     
                 
   
     
@@ -401,6 +314,8 @@ def area_compare():
         slope = (slope_left + slope_right)/2
         goal=geomsg.PoseStamped()
         goal.header.frame_id = 'os1_sensor' #ouster_frame
+
+        
         
         
         if len(valid_circles) > 0: #and slope_left is not None and slope_right is not None:
@@ -449,64 +364,42 @@ def area_compare():
                 mark_s.points.append(p2)
             pub_slope.publish(mark_s)
 
-            # mark_sl = vismsg.Marker()
-            # mark_sl.header.stamp= rospy.Time.now()
-            # mark_sl.header.frame_id = ouster_frame
-            # mark_sl.type = mark_s.LINE_STRIP
-            # mark_sl.action = mark_s.ADD
-            # mark_sl.scale.x=mark_sl.scale.y=mark_sl.scale.z = 0.5
-            # mark_sl.color.r = 0.1
-            # mark_sl.color.g = 0.4
-            # mark_sl.color.b = 0.9
-            # mark_sl.color.a = 0.9 # 90% visibility
-            # mark_sl.pose.orientation.x = mark_sl.pose.orientation.y = mark_sl.pose.orientation.z = 0.0
-            # mark_sl.pose.orientation.w = 1.0
-            # mark_sl.lifetime=rospy.Duration(0.1)
-            # mark_sl.points=[]
-            # if yl is not None:
-            #     p1l=geomsg.Point(); p1l.x=xl0;p1l.y=yl0; p1l.z=0.0
-            #     p2l=geomsg.Point(); p2l.x=-25;p2l.y=yl; p2l.z=0.0
-            #     mark_sl.points.append(p1l)
-            #     mark_sl.points.append(p2l)
-
-            # pub_slopel.publish(mark_sl)
-            #pub_sloper.publish(mark_sr)
-
+            
             a=[]
 
+            if (slope_left < 0.785398 or slope_left > -0.785398) or (slope_right < 0.785398 or slope_right > -0.785398):
+                for i in range(len(valid_circles)-1):
+                    dx=valid_circles[i+1,0]-valid_circles[i,0]
+                    dy=valid_circles[i+1,1]-valid_circles[i,1]            
+                    if math.sqrt(dx**2+dy**2) < max_distance and math.sqrt(dx**2+dy**2) > min_distance:
+                        local_slope = np.arctan2((valid_circles[i+1,1]-valid_circles[i,1]),(valid_circles[i+1,0]- valid_circles[i,0]))
+                        #print(slope,local_slope)
+                        if (local_slope > positive_rotated_slope - math.radians(45) or local_slope < positive_rotated_slope - math.radians(45)) or (local_slope < negative_rotated_slope + math.radians(45) or local_slope > negative_rotated_slope - math.radians(45)):
+                        #if (local_slope > slope[0] - math.radians(20) and local_slope < slope[0] - math.radians(20)) or (local_slope < slope[0] + math.radians(20) and local_slope > slope[0] - math.radians(20)):       
+                            a.append(((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2))
+                            valid_slope=slope
+                            if len(a) > 1:
+                                mat=np.zeros(len(a),)
+                                for i in range(len(a)):
+                                    mat[i]=math.sqrt(a[i][0]**2+(a[i][1]**2))
+                                middle_pose=a[np.argmin(mat)]
+                            else: 
+                                middle_pose=a[0]                   
 
-            for i in range(len(valid_circles)-1):
-                dx=valid_circles[i+1,0]-valid_circles[i,0]
-                dy=valid_circles[i+1,1]-valid_circles[i,1]            
-                if math.sqrt(dx**2+dy**2) < max_distance and math.sqrt(dx**2+dy**2) > min_distance  and lenght_right > 0.8 and lenght_left > 0.8 :
-                    local_slope = np.arctan2((valid_circles[i+1,1]-valid_circles[i,1]),(valid_circles[i+1,0]- valid_circles[i,0]))
-                    #print(slope,local_slope)
-                    #if (local_slope > positive_rotated_slope - math.radians(20) and local_slope < positive_rotated_slope - math.radians(20)) or (local_slope < negative_rotated_slope + math.radians(20) and local_slope > negative_rotated_slope - math.radians(20)):
-                    #if (local_slope > slope[0] - math.radians(20) and local_slope < slope[0] - math.radians(20)) or (local_slope < slope[0] + math.radians(20) and local_slope > slope[0] - math.radians(20)):       
-                    a.append(((valid_circles[i,0] + valid_circles[i+1,0])/2,(valid_circles[i,1] + valid_circles[i+1,1])/2))
-                    valid_slope=slope
-                    if len(a) > 1:
-                        mat=np.zeros(len(a),)
-                        for i in range(len(a)):
-                            mat[i]=math.sqrt(a[i][0]**2+(a[i][1]**2))
-                        middle_pose=a[np.argmin(mat)]
-                    else: 
-                        middle_pose=a[0]                   
+                            if middle_pose is not None and valid_slope is not None:
+                                goal.pose.position.x=middle_pose[0]
+                                goal.pose.position.y=middle_pose[1]
+                                goal.pose.position.z= -1.36
 
-                    if middle_pose is not None and valid_slope is not None:
-                        goal.pose.position.x=middle_pose[0]
-                        goal.pose.position.y=middle_pose[1]
-                        goal.pose.position.z= -1.36
-
-                        if valid_slope > 0:
-                            goal.pose.orientation.z=np.sin((valid_slope + math.pi)/2.0)
-                            goal.pose.orientation.w=np.cos((valid_slope + math.pi) /2.0)
-                        elif valid_slope < 0:
-                            goal.pose.orientation.z=np.sin((valid_slope-math.pi)/2.0)
-                            goal.pose.orientation.w=np.cos((valid_slope-math.pi)/2.0)
-                        
-                        
-                    pub_goal_midle.publish(goal)
+                                if valid_slope > 0:
+                                    goal.pose.orientation.z=np.sin((valid_slope + math.pi)/2.0)
+                                    goal.pose.orientation.w=np.cos((valid_slope + math.pi) /2.0)
+                                elif valid_slope < 0:
+                                    goal.pose.orientation.z=np.sin((valid_slope-math.pi)/2.0)
+                                    goal.pose.orientation.w=np.cos((valid_slope-math.pi)/2.0)
+                                
+                                
+                            pub_goal_midle.publish(goal)
                 
 
 
