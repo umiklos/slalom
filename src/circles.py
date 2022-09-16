@@ -46,10 +46,10 @@ max_y = 15.0
 min_z = -1.1 + 0.8
 max_z = 0.0
 Min_samples = 20 # None
-max_radius = 0.8
+max_radius = 0.3
 min_radius = 0.1 #None
-max_distance = 4.8 # None
-min_distance = 2.0  #None
+max_distance = 3.5 # None
+min_distance = 2.5  #None
 trans_ouster_laser = None
 ouster_frame = None
 trans_ouster_ground_link = None
@@ -111,10 +111,7 @@ def point_cloud_callback(data):
     fields = [PointField('x', 0, PointField.FLOAT32, 1),
             PointField('y', 4, PointField.FLOAT32, 1),
             PointField('z', 8, PointField.FLOAT32, 1),
-            # PointField('r', 12, PointField.FLOAT32, 1),
-            # PointField('g', 16, PointField.FLOAT32, 1),
-            # PointField('b', 20, PointField.FLOAT32, 1),
-            # PointField('a', 24, PointField.FLOAT32, 1),
+            
             ]
     header = Header()
     header.frame_id = "os1_sensor"
@@ -180,29 +177,29 @@ def point_cloud_callback(data):
                 mark_f.id=i
                 mark_f.pose.position.x = l[0]
                 mark_f.pose.position.y = l[1]
-                mark_f.pose.position.z = 0.0
+                mark_f.pose.position.z = -0.7
                 mark_f.lifetime=rospy.Duration(0.1)
 
-                marker_lin_vel3 = vismsg.Marker()
-                marker_lin_vel3.type = marker_lin_vel3.TEXT_VIEW_FACING
-                marker_lin_vel3.pose.position.x = l[0]
-                marker_lin_vel3.pose.position.y = l[1]
-                marker_lin_vel3.pose.position.z = 0.7
-                marker_lin_vel3.ns = "linvel"
-                marker_lin_vel3.id=i
-                marker_lin_vel3.header.frame_id = "os1_sensor"
-                marker_lin_vel3.color.r = 0.0
-                marker_lin_vel3.color.g = 0.0
-                marker_lin_vel3.color.b = 0.0
-                marker_lin_vel3.color.a = 1.0
-                marker_lin_vel3.scale.z = 2.0
-                marker_lin_vel3.lifetime=rospy.Duration(0.1)
+                # marker_lin_vel3 = vismsg.Marker()
+                # marker_lin_vel3.type = marker_lin_vel3.TEXT_VIEW_FACING
+                # marker_lin_vel3.pose.position.x = l[0]
+                # marker_lin_vel3.pose.position.y = l[1]
+                # marker_lin_vel3.pose.position.z = 0.7
+                # marker_lin_vel3.ns = "linvel"
+                # marker_lin_vel3.id=i
+                # marker_lin_vel3.header.frame_id = "os1_sensor"
+                # marker_lin_vel3.color.r = 0.0
+                # marker_lin_vel3.color.g = 0.0
+                # marker_lin_vel3.color.b = 0.0
+                # marker_lin_vel3.color.a = 1.0
+                # marker_lin_vel3.scale.z = 2.0
+                # marker_lin_vel3.lifetime=rospy.Duration(0.1)
 
-                marker_lin_vel3.text='r='+str(format(l[2],'.2f')) + os.linesep + 'Points=' + str(l[3])
+                # marker_lin_vel3.text='r='+str(format(l[2],'.2f')) + os.linesep + 'Points=' + str(l[3])
                 marker_arr.markers.append(mark_f)
 
 
-                marker_arr.markers.append(marker_lin_vel3)
+                # marker_arr.markers.append(marker_lin_vel3)
 
         
             pub_valid_circles.publish(marker_arr)     
