@@ -166,7 +166,7 @@ def point_cloud_callback(data):
                 mark_f.header.frame_id = 'os1_sensor' #ouster_frame
                 mark_f.type = mark_f.SPHERE
                 mark_f.action = mark_f.ADD
-                mark_f.scale.x=mark_f.scale.y=mark_f.scale.z = 0.5
+                mark_f.scale.x=mark_f.scale.y=mark_f.scale.z = l[2]
 
                 mark_f.color.r = 0.1
                 mark_f.color.g = 0.4
